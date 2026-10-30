@@ -1,0 +1,9 @@
+build/
+*.jou
+*.log
+*.str
+.Xil/
+xsim.dir/
+*.wdb
+*.pb
+dfx_runtime.txt
