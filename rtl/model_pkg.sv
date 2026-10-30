@@ -43,4 +43,14 @@ package model_pkg;
   localparam int RMS_LUT_BITS   = 10;  // 1024-entry rsqrt table
   localparam int RMS_SHIFT_BASE = 13;  // 15 (LUT scale) - log2(sqrt(D_MODEL))
 
+  // ---------------- softmax (see scripts/fixedpoint.py) ----------------
+  localparam int EXP_LUT_BITS  = 10;  // 1024-entry exp table, step 1/64
+  localparam int EXP_IDX_SHIFT = 4;   // Q6.10 difference -> table index
+  localparam int SM_RECIP_BITS = 30;  // R = floor(2^30 / sum)
+  localparam int SM_PROB_SHIFT = 16;  // e * R -> Q2.14
+
+  // ---------------- attention ----------------
+  localparam int ATT_SCORE_SHIFT = 11;  // q.k Q12.20 -> Q6.10, plus x0.5 (1/sqrt(HEAD_DIM))
+  localparam int ATT_OUT_SHIFT   = 14;  // p.v Q8.24 -> Q6.10
+
 endpackage

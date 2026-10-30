@@ -6,15 +6,15 @@ Usage (from the project root):
 
 import pathlib
 
-from fixedpoint import rsqrt_lut, write_mem
+from fixedpoint import exp_lut, rsqrt_lut, write_mem
 
 DATA = pathlib.Path(__file__).resolve().parent.parent / "data"
 
 
 def main() -> None:
-    lut = rsqrt_lut()
-    write_mem(DATA / "rsqrt_lut.mem", lut)
-    print(f"wrote {len(lut)} entries to {DATA / 'rsqrt_lut.mem'}")
+    for name, lut in (("rsqrt_lut.mem", rsqrt_lut()), ("exp_lut.mem", exp_lut())):
+        write_mem(DATA / name, lut)
+        print(f"wrote {len(lut)} entries to {DATA / name}")
 
 
 if __name__ == "__main__":

@@ -65,6 +65,64 @@ def rmsnorm_fx(x: list[int], out_frac: int, lut: list[int]) -> list[int]:
     return [requant(v * g, shift) for v in x]
 
 
+# ---------------- softmax (contract: Nonlinear units) ----------------
+#
+# scores are Q6.10. With m = max score and the difference rounded to the
+# nearest table step of 1/64:
+#   e_j = EXP_LUT[min(1023, (m - s_j + 8) >> 4)]   exp(-k/64) in Q2.14
+#   S   = sum e_j                                   in [1.0, 16.0] since e_max = 1.0
+#   R   = floor(2^30 / S)                           exact integer division
+#   p_j = requant(e_j * R, 16)                      Q2.14
+
+EXP_LUT_BITS = 10             # 1024 entries: one BRAM18, covers differences 0 .. 16
+EXP_IDX_SHIFT = 4             # Q6.10 difference -> steps of 1/64
+SM_RECIP_BITS = 30
+SM_PROB_SHIFT = 16
+
+
+def exp_lut() -> list[int]:
+    """1024 entries; entry k = round(exp(-k/64) * 2^14). Entry 0 is exactly 1.0."""
+    steps = 1 << (10 - EXP_IDX_SHIFT)
+    return [math.floor(math.exp(-k / steps) * 2**14 + 0.5) for k in range(1 << EXP_LUT_BITS)]
+
+
+def softmax_fx(scores: list[int], lut: list[int]) -> list[int]:
+    """Bit-exact softmax over 1..16 scores. Matches rtl/softmax.sv."""
+    m = max(scores)
+    top = (1 << EXP_LUT_BITS) - 1
+    half = 1 << (EXP_IDX_SHIFT - 1)            # round the index to nearest
+    e = [lut[min(top, (m - s + half) >> EXP_IDX_SHIFT)] for s in scores]
+    recip = (1 << SM_RECIP_BITS) // sum(e)
+    return [requant(x * recip, SM_PROB_SHIFT) for x in e]
+
+
+# ---------------- attention for one token (contract: Model reference 3.3-3.4) ----------------
+#
+# q: 16 values; ks, vs: the KV cache rows for positions 0..t (t+1 rows of 16).
+# Head h uses dims 4h..4h+3. All tensors Q6.10, probabilities Q2.14.
+#   score_j = requant(q_h . k_h[j], 11)   Q12.20 -> Q6.10, the extra bit is the x0.5
+#   p       = softmax(score_0..t)
+#   out_d   = requant(sum_j p_j v[j][d], 14)   Q8.24 -> Q6.10
+
+N_HEAD = 4
+HEAD_DIM = 4
+ATT_SCORE_SHIFT = 11
+ATT_OUT_SHIFT = 14
+
+
+def attention_fx(q: list[int], ks: list[list[int]], vs: list[list[int]],
+                 lut: list[int]) -> list[int]:
+    """Bit-exact causal attention for one token. Matches rtl/attention.sv."""
+    out = [0] * (N_HEAD * HEAD_DIM)
+    for h in range(N_HEAD):
+        dims = range(h * HEAD_DIM, (h + 1) * HEAD_DIM)
+        scores = [requant(sum(q[d] * k[d] for d in dims), ATT_SCORE_SHIFT) for k in ks]
+        p = softmax_fx(scores, lut)
+        for d in dims:
+            out[d] = requant(sum(pj * v[d] for pj, v in zip(p, vs)), ATT_OUT_SHIFT)
+    return out
+
+
 def write_mem(path, values: list[int], bits: int = 16) -> None:
     """One two's-complement hex word per line (contract: test-vector format)."""
     digits = (bits + 3) // 4
