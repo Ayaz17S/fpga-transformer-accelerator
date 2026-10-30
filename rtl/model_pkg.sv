@@ -36,7 +36,11 @@ package model_pkg;
 
   // ---------------- requantize shifts ----------------
   // Placeholders until the ML side generates quant_params.svh.
-  localparam int EMB_SHIFT = 4;   // wte + wpe: Q2.14 -> Q6.10
+  localparam int EMB_SHIFT       = 4;   // wte + wpe: Q2.14 -> Q6.10
+  localparam int SHIFT_FROM_NORM = 16;  // Q2.14 weights x Q4.12 normed input -> Q6.10
+  localparam int SHIFT_FROM_ACT  = 14;  // Q2.14 weights x Q6.10 activation   -> Q6.10
+  localparam int NORM0_FRAC      = 10;  // first rmsnorm feeds the residual stream: Q6.10
+  localparam int NORM_FRAC       = 12;  // block rmsnorms: Q4.12
 
   // ---------------- RMSNorm (see scripts/fixedpoint.py) ----------------
   localparam int RMS_EPS_RAW    = 10;  // round(1e-5 * 2^20) for Q6.10 inputs

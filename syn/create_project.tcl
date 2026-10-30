@@ -24,8 +24,8 @@ add_files -fileset sim_1 [glob [file join $root tb *.sv]]
 
 # Tops: change the simulation top in Sources -> Simulation Sources ->
 # right-click a testbench -> Set as Top.
-set_property top rmsnorm    [get_filesets sources_1]
-set_property top tb_rmsnorm [get_filesets sim_1]
+set_property top gpt_core    [get_filesets sources_1]
+set_property top tb_gpt_core [get_filesets sim_1]
 set_property -name {xsim.simulate.runtime} -value {all} -objects [get_filesets sim_1]
 
 update_compile_order -fileset sources_1

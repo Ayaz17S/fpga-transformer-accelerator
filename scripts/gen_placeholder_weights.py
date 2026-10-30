@@ -1,45 +1,36 @@
 """Write a placeholder weight ROM image until the trained weights arrive.
 
-Values are random 16-bit two's complement words (seeded, so the file is the
-same every run). The layout must match the memory map in rtl/model_pkg.sv.
+Values are seeded Gaussian random numbers in Q2.14, scaled like a freshly
+initialized network: embeddings with sigma 0.5, each matrix with sigma
+1/sqrt(fan_in). Full-range random weights would saturate almost every
+activation, which makes for a weak end-to-end test. The layout comes from
+fixedpoint.LAYOUT, which must match rtl/model_pkg.sv.
 
 Usage (from the project root):
     python scripts/gen_placeholder_weights.py
 """
 
+import math
 import pathlib
 import random
 
-D_MODEL, CTX, VOCAB, D_FF = 16, 16, 27, 64
+from fixedpoint import D_MODEL, D_FF, LAYOUT, N_WEIGHTS, write_mem
 
-# (name, words) in ROM order - keep in sync with rtl/model_pkg.sv
-LAYOUT = [
-    ("wte",     VOCAB * D_MODEL),
-    ("wpe",     CTX * D_MODEL),
-    ("wq",      D_MODEL * D_MODEL),
-    ("wk",      D_MODEL * D_MODEL),
-    ("wv",      D_MODEL * D_MODEL),
-    ("wo",      D_MODEL * D_MODEL),
-    ("fc1",     D_FF * D_MODEL),
-    ("fc2",     D_MODEL * D_FF),
-    ("lm_head", VOCAB * D_MODEL),
-]
-N_WEIGHTS = 4192
+FAN_IN = {"wq": D_MODEL, "wk": D_MODEL, "wv": D_MODEL, "wo": D_MODEL,
+          "fc1": D_MODEL, "fc2": D_FF, "lm_head": D_MODEL}
 
 
 def main() -> None:
     rng = random.Random(1)
     words = []
-    for _name, count in LAYOUT:
+    for name, count in LAYOUT:
+        sigma = 0.5 if name in ("wte", "wpe") else 1 / math.sqrt(FAN_IN[name])
         for _ in range(count):
-            value = rng.randint(-32768, 32767)
-            words.append(f"{value & 0xFFFF:04x}")  # two's complement, 4 hex digits
+            words.append(max(-32768, min(32767, round(rng.gauss(0, sigma) * 2**14))))
 
     assert len(words) == N_WEIGHTS, len(words)
-
     out = pathlib.Path(__file__).resolve().parent.parent / "data" / "weights_all.mem"
-    out.parent.mkdir(exist_ok=True)
-    out.write_text("\n".join(words) + "\n")
+    write_mem(out, words)
     print(f"wrote {len(words)} words to {out}")
 
 

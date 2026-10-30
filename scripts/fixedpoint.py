@@ -129,3 +129,88 @@ def write_mem(path, values: list[int], bits: int = 16) -> None:
     mask = (1 << bits) - 1
     path.parent.mkdir(exist_ok=True)
     path.write_text("".join(f"{v & mask:0{digits}x}\n" for v in values))
+
+
+def read_mem(path, bits: int = 16) -> list[int]:
+    """Inverse of write_mem: hex words back to signed ints."""
+    out = []
+    for line in path.read_text().split():
+        v = int(line, 16)
+        out.append(v - (1 << bits) if v >= 1 << (bits - 1) else v)
+    return out
+
+
+# ---------------- whole model: one token step (contract: Model reference) ----------------
+
+VOCAB, CTX, D_FF = 27, 16, 64
+
+# weight ROM layout, in order - must match rtl/model_pkg.sv
+LAYOUT = [
+    ("wte",     VOCAB * D_MODEL),
+    ("wpe",     CTX * D_MODEL),
+    ("wq",      D_MODEL * D_MODEL),
+    ("wk",      D_MODEL * D_MODEL),
+    ("wv",      D_MODEL * D_MODEL),
+    ("wo",      D_MODEL * D_MODEL),
+    ("fc1",     D_FF * D_MODEL),
+    ("fc2",     D_MODEL * D_FF),
+    ("lm_head", VOCAB * D_MODEL),
+]
+BASE = {}
+_addr = 0
+for _name, _count in LAYOUT:
+    BASE[_name] = _addr
+    _addr += _count
+N_WEIGHTS = _addr  # 4192
+
+EMB_SHIFT = 4          # wte + wpe: Q2.14 -> Q6.10
+SHIFT_FROM_NORM = 16   # Q2.14 weights x Q4.12 normed input  -> Q6.10
+SHIFT_FROM_ACT = 14    # Q2.14 weights x Q6.10 activation    -> Q6.10
+NORM0_FRAC, NORM_FRAC = 10, 12
+
+
+def sat16(v: int) -> int:
+    return max(-32768, min(32767, v))
+
+
+def matvec_fx(w: list[int], name: str, n_out: int, n_in: int,
+              x: list[int], shift: int) -> list[int]:
+    """y = requant(W x). Matches rtl/matvec.sv."""
+    base = BASE[name]
+    return [requant(sum(w[base + o * n_in + i] * x[i] for i in range(n_in)), shift)
+            for o in range(n_out)]
+
+
+class GptFx:
+    """Bit-exact model. Keeps the KV cache between step() calls. Matches rtl/gpt_core.sv."""
+
+    def __init__(self, weights: list[int], rsqrt: list[int], exp: list[int]):
+        assert len(weights) == N_WEIGHTS
+        self.w, self.rsqrt, self.exp = weights, rsqrt, exp
+        self.k_cache = [None] * CTX
+        self.v_cache = [None] * CTX
+
+    def step(self, token: int, pos: int) -> dict:
+        w = self.w
+        emb = [requant(w[BASE["wte"] + token * D_MODEL + d] + w[BASE["wpe"] + pos * D_MODEL + d],
+                       EMB_SHIFT) for d in range(D_MODEL)]
+        x = rmsnorm_fx(emb, NORM0_FRAC, self.rsqrt)
+
+        # attention block
+        h = rmsnorm_fx(x, NORM_FRAC, self.rsqrt)
+        q = matvec_fx(w, "wq", D_MODEL, D_MODEL, h, SHIFT_FROM_NORM)
+        self.k_cache[pos] = matvec_fx(w, "wk", D_MODEL, D_MODEL, h, SHIFT_FROM_NORM)
+        self.v_cache[pos] = matvec_fx(w, "wv", D_MODEL, D_MODEL, h, SHIFT_FROM_NORM)
+        attn = attention_fx(q, self.k_cache[:pos + 1], self.v_cache[:pos + 1], self.exp)
+        o = matvec_fx(w, "wo", D_MODEL, D_MODEL, attn, SHIFT_FROM_ACT)
+        x = [sat16(a + b) for a, b in zip(x, o)]
+
+        # MLP block
+        h = rmsnorm_fx(x, NORM_FRAC, self.rsqrt)
+        f = [max(0, v) for v in matvec_fx(w, "fc1", D_FF, D_MODEL, h, SHIFT_FROM_NORM)]
+        g = matvec_fx(w, "fc2", D_MODEL, D_FF, f, SHIFT_FROM_ACT)
+        x = [sat16(a + b) for a, b in zip(x, g)]
+
+        logits = matvec_fx(w, "lm_head", VOCAB, D_MODEL, x, SHIFT_FROM_ACT)
+        nxt = logits.index(max(logits))  # ties -> lowest index
+        return {"x": x, "logits": logits, "next": nxt}
