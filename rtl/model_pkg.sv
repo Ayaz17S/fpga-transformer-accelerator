@@ -38,4 +38,9 @@ package model_pkg;
   // Placeholders until the ML side generates quant_params.svh.
   localparam int EMB_SHIFT = 4;   // wte + wpe: Q2.14 -> Q6.10
 
+  // ---------------- RMSNorm (see scripts/fixedpoint.py) ----------------
+  localparam int RMS_EPS_RAW    = 10;  // round(1e-5 * 2^20) for Q6.10 inputs
+  localparam int RMS_LUT_BITS   = 10;  // 1024-entry rsqrt table
+  localparam int RMS_SHIFT_BASE = 13;  // 15 (LUT scale) - log2(sqrt(D_MODEL))
+
 endpackage

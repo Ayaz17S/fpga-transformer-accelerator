@@ -7,3 +7,5 @@ xsim.dir/
 *.wdb
 *.pb
 dfx_runtime.txt
+vivado/
+__pycache__/
