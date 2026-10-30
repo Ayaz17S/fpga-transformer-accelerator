@@ -1,0 +1,13 @@
+../rtl/model_pkg.sv
+../rtl/mac.sv
+../rtl/requant.sv
+../rtl/lut_rom.sv
+../rtl/weight_rom.sv
+../rtl/matvec.sv
+../rtl/embed.sv
+../rtl/rmsnorm.sv
+../rtl/softmax.sv
+../rtl/attention.sv
+../rtl/gpt_core.sv
+../rtl/generator.sv
+../tb/tb_generator.sv

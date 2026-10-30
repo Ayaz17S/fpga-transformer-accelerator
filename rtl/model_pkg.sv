@@ -16,6 +16,7 @@ package model_pkg;
   localparam int CTX      = 16;   // context length
   localparam int VOCAB    = 27;
   localparam int D_FF     = 64;   // MLP hidden width
+  localparam int BOS      = VOCAB - 1;  // token 26: start / end of a name
 
   // ---------------- datapath widths ----------------
   localparam int DATA_W = 16;

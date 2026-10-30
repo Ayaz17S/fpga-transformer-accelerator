@@ -214,3 +214,22 @@ class GptFx:
         logits = matvec_fx(w, "lm_head", VOCAB, D_MODEL, x, SHIFT_FROM_ACT)
         nxt = logits.index(max(logits))  # ties -> lowest index
         return {"x": x, "logits": logits, "next": nxt}
+
+
+BOS = VOCAB - 1  # token 26 marks the start and the end of a name
+
+
+def generate_fx(model: GptFx, start_token: int = BOS) -> list[int]:
+    """Greedy autoregressive generation. Matches rtl/generator.sv.
+
+    Feeds start_token at position 0, then each predicted token back in at the
+    next position. Stops when BOS is predicted or the context (16) is full.
+    Returns the generated tokens (BOS not included).
+    """
+    out, tok = [], start_token
+    for pos in range(CTX):
+        tok = model.step(tok, pos)["next"]
+        if tok == BOS:
+            break
+        out.append(tok)
+    return out
