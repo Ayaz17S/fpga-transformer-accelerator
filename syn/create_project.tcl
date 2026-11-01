@@ -1,13 +1,12 @@
 # Build a Vivado GUI project with every RTL file, testbench and .mem file
 # already added and in the right roles. Usage (from the project root):
 #   vivado -mode gui -source syn/create_project.tcl
-#   vivado -mode gui -source syn/create_project.tcl -tclargs xc7z020clg400-1
+#   vivado -mode gui -source syn/create_project.tcl -tclargs <other part>
 # The project lands in vivado/ (git-ignored) and is rebuilt from scratch each
 # run, so the RTL files in rtl/ and tb/ stay the only source of truth.
-# Default part is an Artix-7 (same 7-series fabric and DSP48E1) until
-# Zynq-7000 device support is installed; then pass the PYNQ-Z2 part.
+# Default part is the PYNQ-Z2's Zynq-7020.
 
-set part xc7a35tcpg236-1
+set part xc7z020clg400-1
 if {$argc > 0} { set part [lindex $argv 0] }
 
 set root [file normalize [file join [file dirname [info script]] ..]]

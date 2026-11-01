@@ -13,13 +13,13 @@ autoregressive generation (each prediction fed back in until BOS or 16
 tokens), matching `generate_fx()` token for token. Weights are placeholders
 until the trained model arrives.
 
-| Measure (Artix-7 synthesis, 100 MHz) | Value |
+| Measure (synthesis on xc7z020, 100 MHz) | Value |
 | --- | --- |
 | Cycles per token | 3,965 at position 0 → 4,625 at position 15 (40–46 µs) |
-| LUTs / FFs | 1,682 / 911 |
+| LUTs / FFs | 1,682 / 911 (3.2% / 0.9% of the chip) |
 | DSP48E1 | 4 |
 | Block RAM | 4 × RAMB36 (weights) + 4 × RAMB18 (tables, KV cache) |
-| Worst slack | +2.75 ns |
+| Worst slack | +2.73 ns |
 
 ## Layout
 
@@ -42,14 +42,11 @@ python scripts/gen_rmsnorm_vectors.py
 python scripts/gen_attention_vectors.py
 python scripts/gen_model_vectors.py
 sim\regress.bat
-vivado -mode batch -source syn/synth.tcl -tclargs gpt_core xc7a35tcpg236-1
+vivado -mode batch -source syn/synth.tcl -tclargs gpt_core
 ```
 
 `sim\regress.bat` runs every testbench and prints one PASS/FAIL line each;
 `sim\run.bat <tb>` runs a single one.
-
-Drop the part argument once Zynq-7000 device support is installed; the
-default part is the PYNQ-Z2's.
 
 ## Open in the Vivado GUI
 
