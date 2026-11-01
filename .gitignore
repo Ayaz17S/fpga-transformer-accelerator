@@ -9,3 +9,4 @@ xsim.dir/
 dfx_runtime.txt
 vivado/
 __pycache__/
+clockInfo.txt

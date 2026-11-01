@@ -15,7 +15,7 @@ create_project fpga_accelerator [file join $root vivado] -part $part -force
 
 # Design sources. The .mem files go here too: synthesis needs them for
 # $readmemh, and Vivado copies them into the simulation run directory.
-add_files -fileset sources_1 [glob [file join $root rtl *.sv]]
+add_files -fileset sources_1 [glob [file join $root rtl *.sv] [file join $root rtl *.v]]
 add_files -fileset sources_1 [glob [file join $root data *.mem]]
 
 # Simulation-only sources: testbenches and tb_pkg.
