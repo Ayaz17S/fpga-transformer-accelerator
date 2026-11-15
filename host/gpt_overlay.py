@@ -13,6 +13,7 @@ rtl/axi_gpt.sv; the offsets below must match its register map.
 """
 
 import argparse
+import json
 import os
 import time
 
@@ -54,9 +55,26 @@ class GptAccelerator:
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--all", action="store_true", help="generate from every start token")
+    parser.add_argument("--check", action="store_true",
+                        help="run every start token and compare with golden_generations.json")
     args = parser.parse_args()
 
     acc = GptAccelerator()
+    if args.check:
+        here = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(here, "golden_generations.json")) as f:
+            golden = json.load(f)
+        bad = 0
+        for start in range(BOS + 1):
+            tokens, _ = acc.generate(start)
+            ok = tokens == golden[str(start)]
+            bad += not ok
+            if not ok:
+                print(f"MISMATCH start {start}: board {decode(tokens)!r}, "
+                      f"expected {decode(golden[str(start)])!r}")
+        print("PASS: all 27 generations match the Python model" if not bad
+              else f"FAIL: {bad} of 27 generations differ")
+        raise SystemExit(1 if bad else 0)
     starts = range(BOS + 1) if args.all else [BOS]
     for start in starts:
         t0 = time.perf_counter()

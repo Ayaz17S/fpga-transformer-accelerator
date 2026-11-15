@@ -8,11 +8,13 @@ the KV cache fills exactly as it does in the hardware. Writes (all in data/):
     model_next.mem     SEQS x 16 steps        argmax token
     gen_len.mem        27 generated lengths, one per start token 0..26
     gen_tokens.mem     27 x 16 generated tokens (unused slots 0)
+and host/golden_generations.json (the same generations, for gpt_overlay.py --check).
 
 Usage (from the project root, after import_checkpoint.py and gen_luts.py):
     python scripts/gen_model_vectors.py
 """
 
+import json
 import pathlib
 import random
 
@@ -50,13 +52,15 @@ def main() -> None:
           f"distinct next tokens: {len(set(nexts))}")
 
     # ---------------- generation from every possible start token ----------------
-    gen_len, gen_tokens = [], []
+    gen_len, gen_tokens, golden = [], [], {}
     for start in range(VOCAB):
         seq = generate_fx(GptFx(weights, rsqrt_lut(), exp_lut()), start)
         gen_len.append(len(seq))
+        golden[str(start)] = seq
         gen_tokens += seq + [0] * (CTX - len(seq))
     write_mem(DATA / "gen_len.mem", gen_len)
     write_mem(DATA / "gen_tokens.mem", gen_tokens)
+    (DATA.parent / "host" / "golden_generations.json").write_text(json.dumps(golden, indent=0) + "\n")
     stopped = sum(n < CTX for n in gen_len)
     print(f"wrote generation for {VOCAB} start tokens; "
           f"{stopped} stopped on BOS, {VOCAB - stopped} filled the context")
