@@ -9,7 +9,7 @@ the KV cache fills exactly as it does in the hardware. Writes (all in data/):
     gen_len.mem        27 generated lengths, one per start token 0..26
     gen_tokens.mem     27 x 16 generated tokens (unused slots 0)
 
-Usage (from the project root, after gen_placeholder_weights.py and gen_luts.py):
+Usage (from the project root, after import_checkpoint.py and gen_luts.py):
     python scripts/gen_model_vectors.py
 """
 

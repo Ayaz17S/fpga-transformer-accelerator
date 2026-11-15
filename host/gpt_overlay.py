@@ -25,8 +25,7 @@ CLOCK_HZ = 100e6       # FCLK_CLK0
 
 
 def decode(tokens):
-    """Tokens 0..25 -> 'a'..'z'. This follows the placeholder vocabulary;
-    switch to the ML side's character table once trained weights are in."""
+    """Tokens 0..25 -> 'a'..'z' (the reference model's vocabulary; 26 is BOS)."""
     return "".join(chr(ord("a") + t) for t in tokens)
 
 

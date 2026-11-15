@@ -2,7 +2,7 @@
 //
 // Every RTL module that needs a dimension or a weight address imports this
 // package, so the numbers live in exactly one place on the RTL side.
-// scripts/gen_placeholder_weights.py writes the ROM image in this same order;
+// scripts/import_checkpoint.py (or gen_placeholder_weights.py) writes the ROM image in this same order;
 // keep the two in sync.
 
 `timescale 1ns/1ps
@@ -36,7 +36,7 @@ package model_pkg;
   localparam int N_WEIGHTS = LM_BASE  + VOCAB   * D_MODEL; // = 4192
 
   // ---------------- requantize shifts ----------------
-  // Placeholders until the ML side generates quant_params.svh.
+  // Fixed-point scheme; the trained weights are quantized to Q2.14 by scripts/import_checkpoint.py.
   localparam int EMB_SHIFT       = 4;   // wte + wpe: Q2.14 -> Q6.10
   localparam int SHIFT_FROM_NORM = 16;  // Q2.14 weights x Q4.12 normed input -> Q6.10
   localparam int SHIFT_FROM_ACT  = 14;  // Q2.14 weights x Q6.10 activation   -> Q6.10
